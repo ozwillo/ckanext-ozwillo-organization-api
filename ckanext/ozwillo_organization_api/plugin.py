@@ -80,7 +80,7 @@ def create_organization(context, data_dict):
 
     try:
         delete_uri = toolkit.url_for(controller='api', action='action',
-                                     logic_function="delete-organization",
+                                     logic_function="delete-ozwillo-organization",
                                      ver=context['api_version'],
                                      qualified=True)
         organization_uri = toolkit.url_for(host=request.host,
@@ -92,7 +92,6 @@ def create_organization(context, data_dict):
                                            qualified=True,
                                            controller='home',
                                            action='index') + 'organization_icon.png'
-
 
         group_or_org_create(context, org_dict, is_org=True)
 

@@ -2,6 +2,7 @@ from hashlib import sha1
 import hmac
 import requests
 import logging
+import json
 
 import ckan.plugins as plugins
 import ckan.plugins.toolkit as toolkit
@@ -87,6 +88,10 @@ def create_organization(context, data_dict):
                                            action='read',
                                            id=org_dict['name'],
                                            qualified=True)
+        default_icon_url = toolkit.url_for(host=request.host,
+                                           qualified=True,
+                                           controller='home',
+                                           action='index') + 'organization_icon.png'
 
 
         group_or_org_create(context, org_dict, is_org=True)
@@ -94,13 +99,22 @@ def create_organization(context, data_dict):
         # setting organization as active explicitely
         group = model.Group.get(org_dict['name'])
         group.state = 'active'
+        group.image_url = default_icon_url
         group.save()
 
         # notify about organization creation
         services = {'services': [{
             'local_id': 'organization',
-            'name': 'Organization ' + org_dict['name'] + ' on CKAN',
+            'name': , org_dict['name'],
             'service_uri': organization_uri,
+            'description': 'Organization ' + org_dict['name'] + ' on CKAN',
+            'tos_uri': organization_uri,
+            'policy_uri': organization_uri,
+            'icon': group.image_url,
+            'payment_option': 'FREE',
+            'target_audience': ['PUBLIC_BODIES'],
+            'contacts': [organization_uri],
+            'redirect_uris': [organization_uri],
             'visible': True}],
             'instance_id': instance_id,
             'destruction_uri': delete_uri,
@@ -113,7 +127,7 @@ def create_organization(context, data_dict):
         headers = {'Content-type': 'application/json',
                    'Accept': 'application/json'}
         requests.post(registration_uri,
-                      data = services,
+                      data=json.dumps(services),
                       auth=(client_id, client_secret),
                       headers=headers
                   )
@@ -134,6 +148,10 @@ class OzwilloOrganizationApiPlugin(plugins.SingletonPlugin):
     API for OASIS to create and delete an organization
     """
     plugins.implements(plugins.IActions)
+    plugins.implements(plugins.IConfigurer)
+
+    def update_config(self, config):
+        toolkit.add_public_directory(config, 'public')
 
     def get_actions(self):
         return {

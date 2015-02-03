@@ -9,6 +9,7 @@ import ckan.logic as logic
 from pylons import config
 from ckan.common import request, _
 from ckan.logic.action.create import _group_or_org_create as group_or_org_create
+from ckan.logic.action.delete import _group_or_org_purge
 
 plugin_config_prefix = 'ckanext.ozwillo_organization_api.'
 
@@ -87,7 +88,9 @@ def create_organization(context, data_dict):
 
 @valid_signature_required
 def delete_organization(context, data_dict):
-    pass
+    data_dict['id'] = data_dict.pop('instance_id')
+    context['ignore_auth'] = True
+    _group_or_org_purge(context, data_dict, is_org=True)
 
 
 class OzwilloOrganizationApiPlugin(plugins.SingletonPlugin):

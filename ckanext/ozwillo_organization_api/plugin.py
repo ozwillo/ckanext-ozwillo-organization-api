@@ -105,7 +105,7 @@ def create_organization(context, data_dict):
         # notify about organization creation
         services = {'services': [{
             'local_id': 'organization',
-            'name': , org_dict['name'],
+            'name': , org_dict['title'],
             'service_uri': organization_uri,
             'description': 'Organization ' + org_dict['name'] + ' on CKAN',
             'tos_uri': organization_uri,

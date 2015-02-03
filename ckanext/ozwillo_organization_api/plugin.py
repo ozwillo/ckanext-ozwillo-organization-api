@@ -113,7 +113,7 @@ def create_organization(context, data_dict):
             'payment_option': 'FREE',
             'target_audience': ['PUBLIC_BODIES'],
             'contacts': [organization_uri],
-            'redirect_uris': [organization_uri],
+            'redirect_uris': [organization_uri + '/redirect'],
             'visible': True}],
             'instance_id': instance_id,
             'destruction_uri': delete_uri,

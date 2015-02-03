@@ -110,9 +110,12 @@ def create_organization(context, data_dict):
                 'motivation': 'Used to link user to the organization'
             }]
         }
+        headers = {'Content-type': 'application/json',
+                   'Accept': 'application/json'}
         requests.post(registration_uri,
                       data = services,
-                      auth=(client_id, client_secret)
+                      auth=(client_id, client_secret),
+                      headers=headers
                   )
     except Exception, e:
         log.debug('Exception "%s" occured while creating organization' % e)

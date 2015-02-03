@@ -17,7 +17,7 @@ def valid_signature_required(func):
 
     signature_header_name = config.get(plugin_config_prefix + 'signature_header_name',
                                        'X-Hub-Signature')
-    instantiated_secret = config.get(plugin_config_prefix + 'instantiated_secret',
+    instantiated_secret = config.get(plugin_config_prefix + 'instantiation_secret',
                                      'secret')
 
     def wrapper(context, data):
@@ -83,7 +83,7 @@ def create_organization(context, data_dict):
                       auth=(client_id, client_secret)
                   )
     except:
-        request.delete(registration_uri)
+        requests.delete(registration_uri)
 
 
 @valid_signature_required

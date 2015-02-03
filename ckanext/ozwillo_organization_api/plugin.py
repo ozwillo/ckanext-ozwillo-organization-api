@@ -98,6 +98,6 @@ class OzwilloOrganizationApiPlugin(plugins.SingletonPlugin):
 
     def get_actions(self):
         return {
-            'create-organization': create_organization,
-            'delete-organization': delete_organization
+            'create-ozwillo-organization': create_organization,
+            'delete-ozwillo-organization': delete_organization
         }

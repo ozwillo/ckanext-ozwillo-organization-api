@@ -1,5 +1,7 @@
 from hashlib import sha1
 import hmac
+import requests
+import logging
 
 import ckan.plugins as plugins
 import ckan.plugins.toolkit as toolkit
@@ -9,9 +11,12 @@ import ckan.logic as logic
 from pylons import config
 from ckan.common import request, _
 from ckan.logic.action.create import _group_or_org_create as group_or_org_create
+from ckan.logic.action.create import user_create
 from ckan.logic.action.delete import _group_or_org_purge
 
 plugin_config_prefix = 'ckanext.ozwillo_organization_api.'
+
+log = logging.getLogger(__name__)
 
 def valid_signature_required(func):
 
@@ -24,7 +29,7 @@ def valid_signature_required(func):
         if signature_header_name in request.headers:
             if request.headers[signature_header_name].startswith('sha1='):
                 algo, received_hmac = request.headers[signature_header_name].rsplit('=')
-                computed_hmac = hmac.new(instantiated_secret, str(data), sha1).hexdigest()
+                computed_hmac = hmac.new(instantiated_secret, request.body, sha1).hexdigest()
                 # the received hmac is uppercase according to
                 # http://doc.ozwillo.com/#ref-3-2-1
                 if received_hmac != computed_hmac.upper():
@@ -38,6 +43,8 @@ def valid_signature_required(func):
 
 @valid_signature_required
 def create_organization(context, data_dict):
+    context['ignore_auth'] = True
+    model = context['model']
 
     destruction_secret = config.get(plugin_config_prefix + 'destruction_secret',
                                        'changeme')
@@ -49,26 +56,51 @@ def create_organization(context, data_dict):
     # re-mapping received dict
     registration_uri = data_dict.pop('instance_registration_uri')
     organization = data_dict['organization']
+    user = data_dict['user']
     org_dict = {
         'type': 'organization',
-        'name': organization['organization_name'].lower(),
+        'name': organization['name'].lower(),
         'id': instance_id,
-        'title': organization['organization_name'],
+        'title': organization['name'],
         'description': organization['type'],
+        'user': user['name']
     }
+
+    user_dict = {
+        'name': user['name'],
+        'email': user['email_address'],
+        'password': user['id']
+    }
+    user_obj = model.User.get(user_dict['name'])
+    if not user_obj:
+        user_create(context, user_dict)
+
+    context['user'] = user_dict['name']
+
     try:
         delete_uri = toolkit.url_for(controller='api', action='action',
                                      logic_function="delete-organization",
                                      ver=context['api_version'],
                                      qualified=True)
+        organization_uri = toolkit.url_for(host=request.host,
+                                           controller='organization',
+                                           action='read',
+                                           id=org_dict['name'],
+                                           qualified=True)
+
 
         group_or_org_create(context, org_dict, is_org=True)
+
+        # setting organization as active explicitely
+        group = model.Group.get(org_dict['name'])
+        group.state = 'active'
+        group.save()
 
         # notify about organization creation
         services = {'services': [{
             'local_id': 'organization',
             'name': 'Organization ' + org_dict['name'] + ' on CKAN',
-            'service_uri': '/organization/' + org_dict['name'],
+            'service_uri': organization_uri,
             'visible': True}],
             'instance_id': instance_id,
             'destruction_uri': delete_uri,
@@ -82,7 +114,8 @@ def create_organization(context, data_dict):
                       data = services,
                       auth=(client_id, client_secret)
                   )
-    except:
+    except Exception, e:
+        log.debug('Exception "%s" occured while creating organization' % e)
         requests.delete(registration_uri)
 
 

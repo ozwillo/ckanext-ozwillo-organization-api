@@ -51,7 +51,7 @@ def create_organization(context, data_dict):
     org_dict = {
         'type': 'organization',
         'name': organization['organization_name'].lower(),
-        'id': organization['id'],
+        'id': instance_id,
         'title': organization['organization_name'],
         'description': organization['type'],
     }

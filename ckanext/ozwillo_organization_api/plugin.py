@@ -59,24 +59,24 @@ def create_organization(context, data_dict):
     registration_uri = data_dict.pop('instance_registration_uri')
     organization = data_dict['organization']
     user = data_dict['user']
-    org_dict = {
-        'type': 'organization',
-        'name': organization['name'].lower(),
-        'id': instance_id,
-        'title': organization['name'],
-        'description': organization['type'],
-        'user': user['name']
-    }
-
     user_dict = {
-        'name': user['name'],
+        'name': user['name'].lower().replace(' ', ''),
         'email': user['email_address'],
         'password': user['id']
     }
     user_obj = model.User.get(user_dict['name'])
+
+    org_dict = {
+        'type': 'organization',
+        'name': organization['name'].lower().replace(' ', '-'),
+        'id': instance_id,
+        'title': organization['name'],
+        'description': organization['type'],
+        'user': user_dict['name']
+    }
+
     if not user_obj:
         user_create(context, user_dict)
-
     context['user'] = user_dict['name']
 
     try:

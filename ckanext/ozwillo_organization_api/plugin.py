@@ -46,6 +46,7 @@ def valid_signature_required(func):
 def create_organization(context, data_dict):
     context['ignore_auth'] = True
     model = context['model']
+    session = context['session']
 
     destruction_secret = config.get(plugin_config_prefix + 'destruction_secret',
                                        'changeme')
@@ -100,6 +101,12 @@ def create_organization(context, data_dict):
         group.state = 'active'
         group.image_url = default_icon_url
         group.save()
+        model.repo.new_revision()
+        model.GroupExtra(group_id=group.id, key='client_id',
+                         value=client_id).save()
+        model.GroupExtra(group_id=group.id, key='client_secret',
+                         value=client_secret).save()
+        session.flush()
 
         # notify about organization creation
         services = {'services': [{

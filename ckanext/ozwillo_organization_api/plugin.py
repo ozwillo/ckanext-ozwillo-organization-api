@@ -138,10 +138,9 @@ def create_organization(context, data_dict):
                       auth=(client_id, client_secret),
                       headers=headers
                   )
-    except Exception, e:
-        log.debug('Exception "%s" occured while creating organization' % e)
-        requests.delete(registration_uri)
-
+    except logic.ValidationError, e:
+        log.debug('Validation error "%s" occured while creating organization' % e)
+        raise
 
 @valid_signature_required
 def delete_organization(context, data_dict):

@@ -122,6 +122,7 @@ def create_organization(context, data_dict):
             'target_audience': ['PUBLIC_BODIES'],
             'contacts': [organization_uri],
             'redirect_uris': [organization_uri + '/callback'],
+            'post_logout_redirect_uris': [organization_uri + '/logout'],
             'visible': True}],
             'instance_id': instance_id,
             'destruction_uri': delete_uri,

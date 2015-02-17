@@ -123,7 +123,7 @@ def create_organization(context, data_dict):
             'contacts': [organization_uri],
             'redirect_uris': [organization_uri + '/callback'],
             'post_logout_redirect_uris': [organization_uri + '/logout'],
-            'visible': True}],
+            'visible': False}],
             'instance_id': instance_id,
             'destruction_uri': delete_uri,
             'destruction_secret': destruction_secret,

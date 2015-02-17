@@ -72,7 +72,6 @@ def create_organization(context, data_dict):
         'name': organization['name'].lower().replace(' ', '-'),
         'id': instance_id,
         'title': organization['name'],
-        'description': organization['type'],
         'user': user_dict['name']
     }
 

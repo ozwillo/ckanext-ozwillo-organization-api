@@ -14,6 +14,7 @@ from ckan.common import request, _
 from ckan.logic.action.create import _group_or_org_create as group_or_org_create
 from ckan.logic.action.create import user_create
 from ckan.logic.action.delete import _group_or_org_purge
+from ckan.lib.plugins import DefaultOrganizationForm
 
 plugin_config_prefix = 'ckanext.ozwillo_organization_api.'
 
@@ -148,6 +149,25 @@ def delete_organization(context, data_dict):
     data_dict['id'] = data_dict.pop('instance_id')
     context['ignore_auth'] = True
     _group_or_org_purge(context, data_dict, is_org=True)
+
+
+class OrganizationForm(plugins.SingletonPlugin, DefaultOrganizationForm):
+    """
+    Custom form ignoring 'title' and 'name' organization fields
+    """
+    plugins.implements(plugins.IGroupForm)
+
+    def is_fallback(self):
+        return True
+
+    def group_types(self):
+        return ('organization',)
+
+    def form_to_db_schema(self):
+        schema = super(OrganizationForm, self).form_to_db_schema()
+        del schema['name']
+        del schema['title']
+        return schema
 
 
 class OzwilloOrganizationApiPlugin(plugins.SingletonPlugin):

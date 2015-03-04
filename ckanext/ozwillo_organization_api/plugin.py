@@ -8,6 +8,7 @@ import ckan.plugins as plugins
 import ckan.plugins.toolkit as toolkit
 
 import ckan.logic as logic
+import ckan.lib.base as base
 
 from pylons import config
 from ckan.common import request, _
@@ -170,12 +171,34 @@ class OrganizationForm(plugins.SingletonPlugin, DefaultOrganizationForm):
         return schema
 
 
+class ErrorController(base.BaseController):
+    def error403(self):
+        return base.abort(403, '')
+
+
 class OzwilloOrganizationApiPlugin(plugins.SingletonPlugin):
     """
     API for OASIS to create and delete an organization
     """
     plugins.implements(plugins.IActions)
     plugins.implements(plugins.IConfigurer)
+    plugins.implements(plugins.IRoutes)
+
+    def before_map(self, map):
+        # disable organization and members api
+        for action in ('member_create', 'member_delete',
+                       'organization_member_delete',
+                       'organization_member_create',
+                       'organization_create',
+                       'organization_update',
+                       'organization_delete'):
+            map.connect('/api/{ver:.*}/action/%s' % action,
+                        controller=__name__ + ':ErrorController',
+                        action='error403')
+        return map
+
+    def after_map(self, map):
+        return map
 
     def update_config(self, config):
         toolkit.add_template_directory(config, 'templates')

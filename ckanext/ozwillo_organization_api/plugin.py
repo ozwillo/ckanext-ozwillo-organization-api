@@ -3,6 +3,7 @@ import hmac
 import requests
 import logging
 import json
+from slugify import slugify
 
 import ckan.plugins as plugins
 import ckan.plugins.toolkit as toolkit
@@ -71,7 +72,7 @@ def create_organization(context, data_dict):
 
     org_dict = {
         'type': 'organization',
-        'name': organization['name'].lower().replace(' ', '-'),
+        'name': slugify(organization['name']),
         'id': instance_id,
         'title': organization['name'],
         'user': user_dict['name']

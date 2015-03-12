@@ -64,7 +64,7 @@ def create_organization(context, data_dict):
     user = data_dict['user']
     user_dict = {
         'id': user['id'],
-        'name': user['name'].lower().replace(' ', '').replace('.', ''),
+        'name': user['id'].replace('-', ''),
         'email': user['email_address'],
         'password': user['id']
     }

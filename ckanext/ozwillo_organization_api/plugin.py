@@ -96,7 +96,7 @@ def create_organization(context, data_dict):
         default_icon_url = toolkit.url_for(host=request.host,
                                            qualified=True,
                                            controller='home',
-                                           action='index') + 'organization_icon.png'
+                                           action='index') + 'opendata.png'
 
         group_or_org_create(context, org_dict, is_org=True)
 

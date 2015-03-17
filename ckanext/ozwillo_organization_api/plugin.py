@@ -160,7 +160,7 @@ class OrganizationForm(plugins.SingletonPlugin, DefaultOrganizationForm):
     plugins.implements(plugins.IGroupForm)
 
     def is_fallback(self):
-        return True
+        return False
 
     def group_types(self):
         return ('organization',)

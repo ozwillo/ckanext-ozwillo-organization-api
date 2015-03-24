@@ -165,6 +165,9 @@ class OrganizationForm(plugins.SingletonPlugin, DefaultOrganizationForm):
     def group_types(self):
         return ('organization',)
 
+    def group_controller(self):
+        return 'organization'
+
     def form_to_db_schema(self):
         schema = super(OrganizationForm, self).form_to_db_schema()
         del schema['name']

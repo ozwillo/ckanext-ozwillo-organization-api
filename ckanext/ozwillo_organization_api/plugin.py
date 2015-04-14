@@ -37,10 +37,13 @@ def valid_signature_required(func):
                 # the received hmac is uppercase according to
                 # http://doc.ozwillo.com/#ref-3-2-1
                 if received_hmac != computed_hmac.upper():
+                    log.info('Invalid HMAC')
                     raise logic.NotAuthorized(_('Invalid HMAC'))
             else:
+                log.info('Invalid HMAC algo')
                 raise logic.ValidationError(_('Invalid HMAC algo'))
         else:
+            log.info('No HMAC in the header')
             raise logic.NotAuthorized(_("No HMAC in the header"))
         return func(context, data)
     return wrapper

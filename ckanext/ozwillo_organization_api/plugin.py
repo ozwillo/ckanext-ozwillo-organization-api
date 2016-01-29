@@ -22,33 +22,35 @@ plugin_config_prefix = 'ckanext.ozwillo_organization_api.'
 
 log = logging.getLogger(__name__)
 
-def valid_signature_required(func):
+def valid_signature_required(secret_prefix):
 
     signature_header_name = config.get(plugin_config_prefix + 'signature_header_name',
                                        'X-Hub-Signature')
-    instantiated_secret = config.get(plugin_config_prefix + 'instantiation_secret',
-                                     'secret')
+    api_secret = config.get(plugin_config_prefix + secret_prefix +'_secret', 'secret')
 
-    def wrapper(context, data):
-        if signature_header_name in request.headers:
-            if request.headers[signature_header_name].startswith('sha1='):
-                algo, received_hmac = request.headers[signature_header_name].rsplit('=')
-                computed_hmac = hmac.new(instantiated_secret, request.body, sha1).hexdigest()
-                # the received hmac is uppercase according to
-                # http://doc.ozwillo.com/#ref-3-2-1
-                if received_hmac != computed_hmac.upper():
-                    log.info('Invalid HMAC')
-                    raise logic.NotAuthorized(_('Invalid HMAC'))
+    def decorator(func):
+        def wrapper(context, data):
+            if signature_header_name in request.headers:
+                if request.headers[signature_header_name].startswith('sha1='):
+                    algo, received_hmac = request.headers[signature_header_name].rsplit('=')
+                    computed_hmac = hmac.new(api_secret, request.body, sha1).hexdigest()
+                    # the received hmac is uppercase according to
+                    # http://doc.ozwillo.com/#ref-3-2-1
+                    if received_hmac != computed_hmac.upper():
+                        log.info('Invalid HMAC')
+                        raise logic.NotAuthorized(_('Invalid HMAC'))
+                else:
+                    log.info('Invalid HMAC algo')
+                    raise logic.ValidationError(_('Invalid HMAC algo'))
             else:
-                log.info('Invalid HMAC algo')
-                raise logic.ValidationError(_('Invalid HMAC algo'))
-        else:
-            log.info('No HMAC in the header')
-            raise logic.NotAuthorized(_("No HMAC in the header"))
-        return func(context, data)
-    return wrapper
+                log.info('No HMAC in the header')
+                raise logic.NotAuthorized(_("No HMAC in the header"))
+            return func(context, data)
+        return wrapper
+    return decorator
 
-@valid_signature_required
+
+@valid_signature_required(secret_prefix='instantiation')
 def create_organization(context, data_dict):
     context['ignore_auth'] = True
     model = context['model']
@@ -149,7 +151,7 @@ def create_organization(context, data_dict):
         log.debug('Validation error "%s" occured while creating organization' % e)
         raise
 
-@valid_signature_required
+@valid_signature_required(secret_prefix='destruction')
 def delete_organization(context, data_dict):
     data_dict['id'] = data_dict.pop('instance_id')
     context['ignore_auth'] = True

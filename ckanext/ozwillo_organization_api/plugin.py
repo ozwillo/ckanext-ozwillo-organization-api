@@ -36,7 +36,7 @@ def valid_signature_required(secret_prefix):
                     computed_hmac = hmac.new(api_secret, request.body, sha1).hexdigest()
                     # the received hmac is uppercase according to
                     # http://doc.ozwillo.com/#ref-3-2-1
-                    if received_hmac != computed_hmac.upper():
+                    if received_hmac.lower() != computed_hmac:
                         log.info('Invalid HMAC')
                         raise logic.NotAuthorized(_('Invalid HMAC'))
                 else:

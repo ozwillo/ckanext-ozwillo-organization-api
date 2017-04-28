@@ -64,7 +64,7 @@ To install ckanext-ozwillo-organization-api:
 
      pip install ckanext-ozwillo-organization-api
 
-3. Add ``ozwillo_organization_api`` to the ``ckan.plugins`` setting in your CKAN
+3. Add ``ozwillo_organization_api`` and ``ozwillo_organization_form`` to the ``ckan.plugins`` setting in your CKAN
    config file (by default the config file is located at
    ``/etc/ckan/default/production.ini``).
 

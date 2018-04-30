@@ -3,6 +3,8 @@ import hmac
 import requests
 import logging
 import json
+import re
+from datetime import datetime
 from slugify import slugify
 
 import ckan.plugins as plugins
@@ -22,11 +24,12 @@ plugin_config_prefix = 'ckanext.ozwillo_organization_api.'
 
 log = logging.getLogger(__name__)
 
+
 def valid_signature_required(secret_prefix):
 
     signature_header_name = config.get(plugin_config_prefix + 'signature_header_name',
                                        'X-Hub-Signature')
-    api_secret = config.get(plugin_config_prefix + secret_prefix +'_secret', 'secret')
+    api_secret = config.get(plugin_config_prefix + secret_prefix + '_secret', 'secret')
 
     def decorator(func):
         def wrapper(context, data):
@@ -54,8 +57,7 @@ def create_organization(context, data_dict):
     model = context['model']
     session = context['session']
 
-    destruction_secret = config.get(plugin_config_prefix + 'destruction_secret',
-                                       'changeme')
+    destruction_secret = config.get(plugin_config_prefix + 'destruction_secret', 'changeme')
 
     client_id = data_dict.pop('client_id')
     client_secret = data_dict.pop('client_secret')
@@ -115,6 +117,12 @@ def create_organization(context, data_dict):
                          value=client_secret).save()
         session.flush()
 
+        # Automatically add data from data gouv
+        dc_id = data_dict['organization']['dc_id']
+        siret_re = re.compile(r'\d{14}')
+        organization_insee = siret_re.search(dc_id).group()
+        after_create(group, organization_insee)
+
         # notify about organization creation
         services = {'services': [{
             'local_id': 'organization',
@@ -143,11 +151,11 @@ def create_organization(context, data_dict):
         requests.post(registration_uri,
                       data=json.dumps(services),
                       auth=(client_id, client_secret),
-                      headers=headers
-                  )
+                      headers=headers)
     except logic.ValidationError, e:
         log.debug('Validation error "%s" occured while creating organization' % e)
         raise
+
 
 @valid_signature_required(secret_prefix='destruction')
 def delete_organization(context, data_dict):
@@ -216,3 +224,151 @@ class OzwilloOrganizationApiPlugin(plugins.SingletonPlugin):
             'create-ozwillo-organization': create_organization,
             'delete-ozwillo-organization': delete_organization
         }
+
+
+# Used for tests purposes
+class CreateOrganizationPlugin(plugins.SingletonPlugin):
+    plugins.implements(plugins.interfaces.IOrganizationController, inherit=True)
+
+    def create(self, entity):
+        after_create(entity, '21350238800019')
+
+
+def after_create(entity, organization_siret):
+    '''
+    This method is called after a new instance is created.
+    It uses the services from data.gouv.fr to automatically add data to our new instance.
+    It is possible to add automatically any other resources from different services as
+    long as an api returns the desired resources urls.
+
+    :param entity: object, the organization being created
+    :param organization_siret: string, the siret of the organization being created.
+    :return:
+    '''
+
+    try:
+        organization = slugify(get_name_from_siret(organization_siret))
+        if organization is None:
+            raise ValueError
+        log.info(organization)
+    except (ValueError, requests.ConnectionError), e:
+        log.error('No organization found for this SIRET, no data will be added : {}'.format(e))
+        return
+
+    organization_id = entity.id
+    insee_re = re.compile(r'\d{5}')
+    base_url_1 = 'https://www.data.gouv.fr/api/1/territory/suggest/?q='
+    base_url_2 = 'https://www.data.gouv.fr/api/1/spatial/zone/{}/datasets?'
+
+    try:
+        # Get the city from the gouv api and extract the name, id, description and insee
+        city_response = requests.get(base_url_1 + organization)
+        city_json = city_response.json()
+        city_name = slugify(city_json[0]['title'])
+        city_description = city_json[0]['page']
+        city_id = city_json[0]['id']
+        city_insee = insee_re.search(city_id).group()
+        log.info(city_name)
+    except (ValueError, AttributeError, KeyError, IndexError, requests.exceptions.RequestException), e:
+        log.error('No territory found for this organization, no data will be added : {}'.format(e))
+        return
+
+    # Get the dataset dict with the 9 dynamic datasets
+    dataset_dict = setup_dataset_dict(city_insee)
+
+    # Create the datasets and resources from the dataset_dict in our previously created dataset
+    resource_count = 0
+    for key, value in dataset_dict.items():
+        package_data = {'name': slugify(organization + '-' + key),
+                        'private': 'false',
+                        'owner_org': organization_id,
+                        'notes': city_description,
+                        'tags': [{'name': 'auto-import'}]}
+        package_id = toolkit.get_action('package_create')({'return_id_only': 'true'}, package_data)
+        gouv_resource = {'package_id': package_id,
+                         'url': value,
+                         'name': key}
+        toolkit.get_action('resource_create')({}, gouv_resource)
+        resource_count += 1
+
+    # Get the others non dynamic urls from the data gouv api
+    try:
+        city_datasets = requests.get(base_url_2.format(city_id))
+        dataset_json = city_datasets.json()
+    except (ValueError, AttributeError, KeyError, IndexError, requests.exceptions.RequestException), e:
+        log.error('No datasets found for this organization, no data will be added to the dataset : {}'.format(e))
+        return
+
+    # For the other datasets, create a local dataset linked to the datagouv one after checking they are valid
+    for dataset in dataset_json:
+        try:
+            response = requests.get(dataset['uri'])
+            if response.status_code == 404:
+                continue
+            else:
+                package_data = {'name': slugify(organization + '_' + dataset['title']),
+                                'private': 'false',
+                                'owner_org': organization_id,
+                                'notes': city_description,
+                                'url': dataset['uri'],
+                                'tags': [{'name': 'auto-import'}]}
+                toolkit.get_action('package_create')({}, package_data)
+                resource_count += 1
+        except (ValueError, AttributeError, KeyError, IndexError, requests.exceptions.RequestException), e:
+            log.error('No resources found for this dataset, it will not be added to the new dataset : {}'.format(e))
+    log.info('Added {} resources to the dataset'.format(resource_count))
+
+
+def setup_dataset_dict(city_insee):
+    # Base resources urls for the 9 dynamic datasets found in every town page in datagouv
+    # These urls can't be retrieved via see API (see below) so we add them manually using the city insee number
+    url_population = 'https://www.insee.fr/fr/statistiques/tableaux/2021173/COM/{}/popleg2013_cc_popleg.xls'
+    url_figures = 'https://www.insee.fr/fr/statistiques/tableaux/2020310/COM/{}/rp2013_cc_fam.xls'
+    url_education = 'https://www.insee.fr/fr/statistiques/tableaux/2020665/COM/{}/rp2013_cc_for.xls'
+    url_employement = 'https://www.insee.fr/fr/statistiques/tableaux/2020907/COM/{}/rp2013_cc_act.xls'
+    url_housing = 'https://www.insee.fr/fr/statistiques/tableaux/2020507/COM/{}/rp2013_cc_log.xls'
+    url_sirene = 'http://212.47.238.202/geo_sirene/last/communes/{}.csv'
+    url_zones = 'http://sig.ville.gouv.fr/Territoire/{}/onglet/DonneesLocales'
+    url_budget = 'http://alize2.finances.gouv.fr/communes/eneuro/tableau.php?icom={}&dep=0{}&type=BPS&param=0'
+    url_adresses = 'http://bano.openstreetmap.fr/BAN_odbl/communes/BAN_odbl_{}.csv'
+
+    # Create a dataset_dict linking resources names with their url
+    # Here we add manually the dynamic datasets
+    dataset_dict = {'Population': url_population.format(city_insee),
+                    'Chiffres cles': url_figures.format(city_insee),
+                    'Diplomes - Formation': url_education.format(city_insee),
+                    'Emploi': url_employement.format(city_insee),
+                    'Logement': url_housing.format(city_insee),
+                    'SIRENE': url_sirene.format(city_insee),
+                    'Zonage des politiques de la ville': url_zones.format(city_insee),
+                    'Comptes de la collectivite': url_budget.format(city_insee[2:], city_insee[:2]),
+                    'Adresses': url_adresses.format(city_insee)}
+    
+    return dataset_dict
+
+
+def get_name_from_siret(siret):
+
+    apiKey = config.get('ckanext.ozwillo_organization_api.verifsiret_apikey', '')
+    secretKey = config.get('ckanext.ozwillo_organization_api.verifsiret_secretkey', '')
+    url = "http://www.verif-siret.com/api/siret?siret=" + siret
+    result = None
+
+    if apiKey == '' or secretKey == '':
+        log.error('Verif-siret config incomplete, please register your api key and api secret in the config file')
+        result = ''
+        return result
+
+    try:
+        get = requests.get(url, auth=(apiKey, secretKey))
+        if get.status_code != 200:
+            raise requests.ConnectionError()
+    except requests.exceptions.RequestException as err:
+        log.error('An error occurred: {0}'.format(err))
+    else:
+        try:
+            result = get.json()['array_return'][0]['LIBCOM']
+        except (IndexError, TypeError, AttributeError):
+            log.error('No organization found for this siret number')
+    finally:
+        return result

@@ -4,19 +4,17 @@ import requests
 import logging
 import json
 import re
-from datetime import datetime
 from slugify import slugify
 
 import ckan.plugins as plugins
-import ckan.plugins.toolkit as toolkit
+from ckan.plugins.toolkit import url_for, redirect_to, request, config, add_template_directory, add_public_directory, get_action
 
 import ckan.logic as logic
 import ckan.lib.base as base
 
 import ckan.model as model
 
-from pylons import config
-from ckan.common import request, _, c
+from ckan.common import _, c
 from ckan.logic.action.create import _group_or_org_create as group_or_org_create
 from ckan.logic.action.create import user_create
 from ckan.logic.action.delete import _group_or_org_purge
@@ -29,8 +27,7 @@ log = logging.getLogger(__name__)
 
 def valid_signature_required(secret_prefix):
 
-    signature_header_name = config.get(plugin_config_prefix + 'signature_header_name',
-                                       'X-Hub-Signature')
+    signature_header_name = config.get(plugin_config_prefix + 'signature_header_name', 'X-Hub-Signature')
     api_secret = config.get(plugin_config_prefix + secret_prefix + '_secret', 'secret')
 
     def decorator(func):
@@ -38,7 +35,7 @@ def valid_signature_required(secret_prefix):
             if signature_header_name in request.headers:
                 if request.headers[signature_header_name].startswith('sha1='):
                     algo, received_hmac = request.headers[signature_header_name].rsplit('=')
-                    computed_hmac = hmac.new(api_secret, request.body, sha1).hexdigest()
+                    computed_hmac = hmac.new(api_secret, request.get_data(), sha1).hexdigest()
                     if received_hmac.lower() != computed_hmac:
                         log.info('Invalid HMAC')
                         raise logic.NotAuthorized(_('Invalid HMAC'))
@@ -90,17 +87,17 @@ def create_organization(context, data_dict):
     context['user'] = user_dict['name']
 
     try:
-        delete_uri = toolkit.url_for(host=request.host,
+        delete_uri = url_for(host=request.host,
                                      controller='api', action='action',
                                      logic_function="delete-ozwillo-organization",
                                      ver=context['api_version'],
                                      qualified=True)
-        organization_uri = toolkit.url_for(host=request.host,
+        organization_uri = url_for(host=request.host,
                                            controller='organization',
                                            action='read',
                                            id=org_dict['name'],
                                            qualified=True)
-        default_icon_url = toolkit.url_for(host=request.host,
+        default_icon_url = url_for(host=request.host,
                                            qualified=True,
                                            controller='home',
                                            action='index') + 'opendata.png'
@@ -222,8 +219,8 @@ class OzwilloOrganizationApiPlugin(plugins.SingletonPlugin):
         return map
 
     def update_config(self, config):
-        toolkit.add_template_directory(config, 'templates')
-        toolkit.add_public_directory(config, 'public')
+        add_template_directory(config, 'templates')
+        add_public_directory(config, 'public')
 
     def get_actions(self):
         return {
@@ -293,11 +290,11 @@ def after_create(entity, organization_siret, user):
         try:
             context = {'model': model, 'session': model.Session,
                        'user': user, 'return_id_only': 'true'}
-            package_id = toolkit.get_action('package_create')(context, package_data)
+            package_id = get_action('package_create')(context, package_data)
             gouv_resource = {'package_id': package_id,
                              'url': value,
                              'name': key}
-            toolkit.get_action('resource_create')(context, gouv_resource)
+            get_action('resource_create')(context, gouv_resource)
             resource_count += 1
         except Exception as err:
             log.info(err)
@@ -324,7 +321,7 @@ def after_create(entity, organization_siret, user):
                                 'notes': city_description,
                                 'url': dataset['uri'],
                                 'tags': [{'name': 'auto-import'}]}
-                toolkit.get_action('package_create')(context, package_data)
+                get_action('package_create')(context, package_data)
                 resource_count += 1
         except (ValueError, AttributeError, KeyError, IndexError, requests.exceptions.RequestException), e:
             log.error('No resources found for this dataset, it will not be added to the new dataset : {}'.format(e))

@@ -8,7 +8,7 @@ from slugify import slugify
 
 import ckan.plugins as plugins
 from ckan.plugins.toolkit import redirect_to, request, config, add_template_directory, add_public_directory, get_action
-from ckan.lib.helpers import url_for, url_for_static
+from ckan.lib.helpers import url_for
 
 import ckan.logic as logic
 import ckan.lib.base as base
@@ -100,7 +100,9 @@ def create_organization(context, data_dict):
                                    action='read',
                                    id=org_dict['name'],
                                    qualified=True)
-        default_icon_url = url_for_static('/opendata.png', _external=True)
+        default_icon_url = url_for(controller='home',
+                                   action='index',
+                                   qualified=True) + 'opendata.png'
 
         group_or_org_create(context, org_dict, is_org=True)
 
@@ -161,7 +163,7 @@ def create_organization(context, data_dict):
                       data=json.dumps(services),
                       auth=(client_id, client_secret),
                       headers=headers)
-        log.debug('Received response from kernel : {}'.format(registration_response))
+        log.debug('Received response from kernel : {} ({})'.format(registration_response.text, registration_response.status_code))
     except logic.ValidationError, e:
         log.debug('Validation error "%s" occurred while creating organization' % e)
         raise

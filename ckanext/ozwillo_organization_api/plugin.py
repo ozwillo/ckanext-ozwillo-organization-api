@@ -7,7 +7,7 @@ import re
 from slugify import slugify
 
 import ckan.plugins as plugins
-from ckan.plugins.toolkit import url_for, redirect_to, request, config, add_template_directory, add_public_directory, get_action
+from ckan.plugins.toolkit import url_for, url_for_static, redirect_to, request, config, add_template_directory, add_public_directory, get_action
 
 import ckan.logic as logic
 import ckan.lib.base as base
@@ -87,24 +87,20 @@ def create_organization(context, data_dict):
     context['user'] = user_dict['name']
 
     try:
-        delete_uri = url_for(host=request.host,
-                                     controller='api', action='action',
-                                     logic_function="delete-ozwillo-organization",
-                                     ver=context['api_version'],
-                                     qualified=True)
-        organization_uri = url_for(host=request.host,
-                                           controller='organization',
-                                           action='read',
-                                           id=org_dict['name'],
-                                           qualified=True)
-        default_icon_url = url_for(host=request.host,
-                                           qualified=True,
-                                           controller='home',
-                                           action='index') + 'opendata.png'
+        delete_uri = url_for(controller='api',
+                             action='action',
+                             logic_function='delete-ozwillo-organization',
+                             ver=context['api_version'],
+                             qualified=True)
+        organization_uri = url_for(controller='organization',
+                                   action='read',
+                                   id=org_dict['name'],
+                                   qualified=True)
+        default_icon_url = url_for_static('/opendata.png', _external=True)
 
         group_or_org_create(context, org_dict, is_org=True)
 
-        # setting organization as active explicitely
+        # setting organization as active explicitly
         group = model.Group.get(org_dict['name'])
         group.state = 'active'
         group.image_url = default_icon_url
@@ -129,14 +125,14 @@ def create_organization(context, data_dict):
         # notify about organization creation
         services = {'services': [{
             'local_id': 'organization',
-            'name': 'Open Data',
+            'name': 'Open Data - ' + org_dict['name'],
             'service_uri': organization_uri + '/sso',
             'description': 'Organization ' + org_dict['name'] + ' on CKAN',
             'tos_uri': organization_uri,
             'policy_uri': organization_uri,
             'icon': group.image_url,
             'payment_option': 'FREE',
-            'target_audience': ['PUBLIC_BODIES'],
+            'target_audience': ['PUBLIC_BODIES', 'CITIZENS', 'COMPANIES'],
             'contacts': [organization_uri],
             'redirect_uris': [organization_uri + '/callback'],
             'post_logout_redirect_uris': [organization_uri + '/logout'],
@@ -156,7 +152,7 @@ def create_organization(context, data_dict):
                       auth=(client_id, client_secret),
                       headers=headers)
     except logic.ValidationError, e:
-        log.debug('Validation error "%s" occured while creating organization' % e)
+        log.debug('Validation error "%s" occurred while creating organization' % e)
         raise
 
 

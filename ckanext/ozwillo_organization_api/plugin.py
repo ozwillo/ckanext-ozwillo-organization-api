@@ -7,8 +7,8 @@ import re
 from slugify import slugify
 
 import ckan.plugins as plugins
-from ckan.plugins.toolkit import url_for, redirect_to, request, config, add_template_directory, add_public_directory, get_action
-from ckan.lib.helpers import url_for_static
+from ckan.plugins.toolkit import redirect_to, request, config, add_template_directory, add_public_directory, get_action
+from ckan.lib.helpers import url_for, url_for_static
 
 import ckan.logic as logic
 import ckan.lib.base as base
@@ -66,6 +66,9 @@ def create_organization(context, data_dict):
     # re-mapping received dict
     registration_uri = data_dict.pop('instance_registration_uri')
     organization = data_dict['organization']
+
+    log.info('Creating organization {} (instance id : {})'.format(organization, instance_id))
+
     user = data_dict['user']
     user_dict = {
         'id': user['id'],
@@ -119,14 +122,14 @@ def create_organization(context, data_dict):
             organization_insee = siret_re.search(dc_id).group()
             after_create(group, organization_insee, user_dict['name'])
         except AttributeError:
-            log.error('SIRET did not match pattern, no data will be added')
+            log.info('SIRET did not match pattern, no data will be added')
 
         session.flush()
 
         # notify about organization creation
         services = {'services': [{
             'local_id': 'organization',
-            'name': 'Open Data - ' + org_dict['name'],
+            'name': 'Open Data - ' + org_dict['title'],
             'service_uri': organization_uri + '/sso',
             'description': 'Organization ' + org_dict['name'] + ' on CKAN',
             'tos_uri': organization_uri,
@@ -148,6 +151,12 @@ def create_organization(context, data_dict):
         }
         headers = {'Content-type': 'application/json',
                    'Accept': 'application/json'}
+
+        log.info('Confirming registration on {}'.format(registration_uri))
+        services_copy = services.copy()
+        del services_copy['destruction_secret']
+        log.info('Registration info is {}'.format(json.dumps(services_copy)))
+
         requests.post(registration_uri,
                       data=json.dumps(services),
                       auth=(client_id, client_secret),

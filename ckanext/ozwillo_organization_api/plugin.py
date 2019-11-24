@@ -157,10 +157,11 @@ def create_organization(context, data_dict):
         del services_copy['destruction_secret']
         log.info('Registration info is {}'.format(json.dumps(services_copy)))
 
-        requests.post(registration_uri,
+        registration_response = requests.post(registration_uri,
                       data=json.dumps(services),
                       auth=(client_id, client_secret),
                       headers=headers)
+        log.debug('Received response from kernel : {}'.format(registration_response))
     except logic.ValidationError, e:
         log.debug('Validation error "%s" occurred while creating organization' % e)
         raise

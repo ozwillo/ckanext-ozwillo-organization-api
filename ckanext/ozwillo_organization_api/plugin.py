@@ -7,7 +7,8 @@ import re
 from slugify import slugify
 
 import ckan.plugins as plugins
-from ckan.plugins.toolkit import url_for, url_for_static, redirect_to, request, config, add_template_directory, add_public_directory, get_action
+from ckan.plugins.toolkit import url_for, redirect_to, request, config, add_template_directory, add_public_directory, get_action
+from ckan.lib.helpers import url_for_static
 
 import ckan.logic as logic
 import ckan.lib.base as base

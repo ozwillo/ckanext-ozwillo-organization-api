@@ -259,10 +259,12 @@ def after_create(entity, organization_siret, user):
     '''
 
     try:
-        organization = slugify(get_name_from_siret(organization_siret))
+        name_from_siret = get_name_from_siret(organization_siret)
+        log.info("Got name {} from SIRET {}".format(name_from_siret, organization_siret))
+        organization = slugify(name_from_siret)
         if organization is None:
             raise ValueError
-        log.info(organization)
+        log.info("Slugified organization is {}".format(organization))
     except (ValueError, requests.ConnectionError), e:
         log.error('No organization found for this SIRET, no data will be added : {}'.format(e))
         return
@@ -369,7 +371,7 @@ def get_name_from_siret(siret):
 
     apiKey = config.get('ckanext.ozwillo_organization_api.verifsiret_apikey', '')
     secretKey = config.get('ckanext.ozwillo_organization_api.verifsiret_secretkey', '')
-    url = "http://www.verif-siret.com/api/siret?siret=" + siret
+    url = "https://www.numero-de-siret.com/api/siret?siret=" + siret
     result = None
 
     if apiKey == '' or secretKey == '':

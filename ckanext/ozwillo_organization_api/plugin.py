@@ -261,6 +261,8 @@ def after_create(entity, organization_siret, user):
     try:
         name_from_siret = get_name_from_siret(organization_siret)
         log.info("Got name {} from SIRET {}".format(name_from_siret, organization_siret))
+        if name_from_siret is None:
+            raise ValueError
         organization = slugify(name_from_siret)
         if organization is None:
             raise ValueError

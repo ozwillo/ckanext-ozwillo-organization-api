@@ -7,11 +7,10 @@ import re
 from slugify import slugify
 
 import ckan.plugins as plugins
-from ckan.plugins.toolkit import redirect_to, request, config, add_template_directory, add_public_directory, get_action
+from ckan.plugins.toolkit import redirect_to, request, config, add_template_directory, add_public_directory, get_action #, BaseController
 from ckan.lib.helpers import url_for
 
-import ckan.logic as logic
-import ckan.lib.base as base
+toolkit = plugins.toolkit
 
 import ckan.model as model
 
@@ -20,6 +19,8 @@ from ckan.logic.action.create import _group_or_org_create as group_or_org_create
 from ckan.logic.action.create import user_create
 from ckan.logic.action.delete import _group_or_org_purge
 from ckan.lib.plugins import DefaultOrganizationForm
+
+from ckanext.ozwillo_organization_api import blueprint
 
 plugin_config_prefix = 'ckanext.ozwillo_organization_api.'
 
@@ -39,13 +40,13 @@ def valid_signature_required(secret_prefix):
                     computed_hmac = hmac.new(api_secret, request.get_data(), sha1).hexdigest()
                     if received_hmac.lower() != computed_hmac:
                         log.info('Invalid HMAC')
-                        raise logic.NotAuthorized(_('Invalid HMAC'))
+                        raise toolkit.NotAuthorized(_('Invalid HMAC'))
                 else:
                     log.info('Invalid HMAC algo')
-                    raise logic.ValidationError(_('Invalid HMAC algo'))
+                    raise toolkit.ValidationError(_('Invalid HMAC algo'))
             else:
                 log.info('No HMAC in the header')
-                raise logic.NotAuthorized(_("No HMAC in the header"))
+                raise toolkit.NotAuthorized(_("No HMAC in the header"))
             return func(context, data)
         return wrapper
     return decorator
@@ -164,7 +165,7 @@ def create_organization(context, data_dict):
                       auth=(client_id, client_secret),
                       headers=headers)
         log.debug('Received response from kernel : {} ({})'.format(registration_response.text, registration_response.status_code))
-    except logic.ValidationError, e:
+    except toolkit.ValidationError as e:
         log.debug('Validation error "%s" occurred while creating organization' % e)
         raise
 
@@ -198,30 +199,18 @@ class OrganizationForm(plugins.SingletonPlugin, DefaultOrganizationForm):
         return schema
 
 
-class ErrorController(base.BaseController):
-    def error403(self):
-        return base.abort(403, '')
-
-
 class OzwilloOrganizationApiPlugin(plugins.SingletonPlugin):
     """
     API for OASIS to create and delete an organization
     """
     plugins.implements(plugins.IActions)
     plugins.implements(plugins.IConfigurer)
-    plugins.implements(plugins.IRoutes)
+    plugins.implements(plugins.IBlueprint)
+
+    def get_blueprint(self):
+        return blueprint.ozwillo_organization_api
 
     def before_map(self, map):
-        # disable organization and members api
-        for action in ('member_create', 'member_delete',
-                       'organization_member_delete',
-                       'organization_member_create',
-                       'organization_create',
-                       'organization_update',
-                       'organization_delete'):
-            map.connect('/api/{ver:.*}/action/%s' % action,
-                        controller=__name__ + ':ErrorController',
-                        action='error403')
         return map
 
     def after_map(self, map):
@@ -267,7 +256,7 @@ def after_create(entity, organization_siret, user):
         if organization is None:
             raise ValueError
         log.info("Slugified organization is {}".format(organization))
-    except (ValueError, requests.ConnectionError), e:
+    except (ValueError, requests.ConnectionError) as e:
         log.error('No organization found for this SIRET, no data will be added : {}'.format(e))
         return
 
@@ -285,7 +274,7 @@ def after_create(entity, organization_siret, user):
         city_id = city_json[0]['id']
         city_insee = insee_re.search(city_id).group()
         log.info(city_name)
-    except (ValueError, AttributeError, KeyError, IndexError, requests.exceptions.RequestException), e:
+    except (ValueError, AttributeError, KeyError, IndexError, requests.exceptions.RequestException) as e:
         log.error('No territory found for this organization, no data will be added : {}'.format(e))
         return
 
@@ -316,7 +305,7 @@ def after_create(entity, organization_siret, user):
     try:
         city_datasets = requests.get(base_url_2.format(city_id))
         dataset_json = city_datasets.json()
-    except (ValueError, AttributeError, KeyError, IndexError, requests.exceptions.RequestException), e:
+    except (ValueError, AttributeError, KeyError, IndexError, requests.exceptions.RequestException) as e:
         log.error('No datasets found for this organization, no data will be added to the dataset : {}'.format(e))
         return
 
@@ -336,7 +325,7 @@ def after_create(entity, organization_siret, user):
                                 'tags': [{'name': 'auto-import'}]}
                 get_action('package_create')(context, package_data)
                 resource_count += 1
-        except (ValueError, AttributeError, KeyError, IndexError, requests.exceptions.RequestException), e:
+        except (ValueError, AttributeError, KeyError, IndexError, requests.exceptions.RequestException) as e:
             log.error('No resources found for this dataset, it will not be added to the new dataset : {}'.format(e))
     log.info('Added {} resources to the dataset'.format(resource_count))
 

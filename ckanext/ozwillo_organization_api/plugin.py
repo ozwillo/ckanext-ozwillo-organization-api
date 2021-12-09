@@ -37,7 +37,9 @@ def valid_signature_required(secret_prefix):
             if signature_header_name in request.headers:
                 if request.headers[signature_header_name].startswith('sha1='):
                     algo, received_hmac = request.headers[signature_header_name].rsplit('=')
-                    computed_hmac = hmac.new(api_secret, request.get_data(), sha1).hexdigest()
+                    # since python 3, bytes are not directly str so key must be encoded : https://stackoverflow.com/a/43882903/2862821
+                    # else ERROR [ckan.views.api] key: expected bytes or bytearray, but got 'str'
+                    computed_hmac = hmac.new(bytes(api_secret, 'utf-8'), request.get_data(), sha1).hexdigest()
                     if received_hmac.lower() != computed_hmac:
                         log.info('Invalid HMAC')
                         raise toolkit.NotAuthorized(_('Invalid HMAC'))
@@ -112,7 +114,7 @@ def create_organization(context, data_dict):
         group.state = 'active'
         group.image_url = default_icon_url
         group.save()
-        model.repo.new_revision()
+        # no model.repo.new_revision() in 2.9 like in 2.8.2, see ckan/action/create.py diff & https://pythonrepo.com/repo/ckan-ckan-python-science
         model.GroupExtra(group_id=group.id, key='client_id',
                          value=client_id).save()
         model.GroupExtra(group_id=group.id, key='client_secret',

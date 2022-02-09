@@ -14,7 +14,7 @@ toolkit = plugins.toolkit
 
 import ckan.model as model
 
-from ckan.common import _, c
+from ckan.common import _, c, asbool
 from ckan.logic.action.create import _group_or_org_create as group_or_org_create
 from ckan.logic.action.create import user_create
 from ckan.logic.action.delete import _group_or_org_purge
@@ -125,7 +125,8 @@ def create_organization(context, data_dict):
         siret_re = re.compile(r'\d{14}')
         try:
             organization_insee = siret_re.search(dc_id).group()
-            after_create(group, organization_insee, user_dict['name'])
+            if asbool(config.get('ckanext.ozwillo_organization_api.add_data_on_create', True)):
+                after_create(group, organization_insee, user_dict['name'])
         except AttributeError:
             log.info('SIRET did not match pattern, no data will be added')
 

@@ -81,5 +81,15 @@ setup(
         ozwillo_organization_api=ckanext.ozwillo_organization_api.plugin:OzwilloOrganizationApiPlugin
         ozwillo_organization_form=ckanext.ozwillo_organization_api.plugin:OrganizationForm
         ozwillo_organization_create=ckanext.ozwillo_organization_api.plugin:CreateOrganizationPlugin
+        [babel.extractors]
+        ckan = ckan.lib.extract:extract_ckan
     ''',
+    
+    message_extractors={
+        'ckanext': [
+            ('**.py', 'python', None),
+            ('**.js', 'javascript', None),
+            ('**/templates/**.html', 'ckan', None),
+        ],
+    }
 )

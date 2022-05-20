@@ -14,3 +14,8 @@
   {{ super() }}
 
 {% endblock %}
+
+
+{% block organization_extras %}
+{% snippet 'snippets/additional_info.html', extras = h.sorted_extras(group_dict.extras | rejectattr('key', 'in', ['client_id', 'client_secret']) | list) %}
+{% endblock %}

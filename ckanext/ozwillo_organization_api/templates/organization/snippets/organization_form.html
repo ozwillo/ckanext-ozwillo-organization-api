@@ -1,16 +1,8 @@
 {% ckan_extends %}
 
-{% block basic_fields %}
-    {{ super() }}
-
-    {% block fields_siren %}
-    {{ form.input('siren', id='field-siren', label=_('SIREN'), placeholder=_('SIREN'), value=data.extras) }}
-    {% endblock %}
-{% endblock %}
-
 {#
 Remove custom fields
-Otherwise ozwillo-organization-api's client_id and client_
+Otherwise client_id and client_secret can be seen, or will be erased if not passed to custom_form_fields.html
 #}
 {% block custom_fields %}
 {% endblock %}

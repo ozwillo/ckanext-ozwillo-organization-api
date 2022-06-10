@@ -120,11 +120,17 @@ def create_organization(context, data_dict):
         model.GroupExtra(group_id=group.id, key='client_secret',
                          value=client_secret).save()
 
-        # Automatically add data from data gouv
+        # Get & save SIREN/SIRET and automatically add data from data gouv
         dc_id = data_dict['organization']['dc_id']
         siret_re = re.compile(r'\d{14}')
         try:
             organization_insee = siret_re.search(dc_id).group()
+            model.GroupExtra(group_id=group.id, key='siret',
+                             value=organization_insee).save()
+            model.GroupExtra(group_id=group.id, key='siren',
+                             value=organization_insee[:9]).save()
+            model.GroupExtra(group_id=group.id, key='FDR_SIREN',
+                             value=organization_insee[:9]).save()
             if asbool(config.get('ckanext.ozwillo_organization_api.add_data_on_create', True)):
                 after_create(group, organization_insee, user_dict['name'])
         except AttributeError:

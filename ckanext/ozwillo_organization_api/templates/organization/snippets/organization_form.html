@@ -1,11 +1,16 @@
 {% ckan_extends %}
 
-{% block custom_fields %}
+{% block basic_fields %}
+    {{ super() }}
+
+    {% block fields_siren %}
+    {{ form.input('siren', id='field-siren', label=_('SIREN'), placeholder=_('SIREN'), value=data.extras) }}
+    {% endblock %}
+{% endblock %}
 
 {#
-re enable extra fields BUT without sensible ones.
-(For FDR, a single custom SIREN field might be enough, but until we're sure this is more flexible)
+Remove custom fields
+Otherwise ozwillo-organization-api's client_id and client_
 #}
-{% snippet 'snippets/custom_form_fields.html', extras=data.extras | rejectattr('key', 'in', ['client_id', 'client_secret']) | list, errors=errors, limit=3 %}
-
+{% block custom_fields %}
 {% endblock %}
